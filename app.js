@@ -68,34 +68,43 @@ let worker = setInterval(async function(){
     if(data.access_token){
         if(!cache.workRightNow){
             cache.workRightNow = true
-            let inputData = await netRequest({
-                hostname: 'api.spotify.com',
-                path: '/v1/me/player/currently-playing',
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${data.access_token}`
+            try{
+                let inputData = await netRequest({
+                    hostname: 'api.spotify.com',
+                    path: '/v1/me/player/currently-playing',
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${data.access_token}`
+                    }
+                })
+                if(inputData != ""){
+                    let jsonData = JSON.parse(inputData)
+                    if(!jsonData.error){
+                        outputdata["titlename"] = jsonData.item.name
+                        let artists = ""
+                        Object(jsonData.item.artists).forEach(element => {
+                            artists += ", " + element.name
+                        })
+                        outputdata["artistname"] = artists.substr(2)
+                        outputdata["imageurl"] = jsonData.item.album.images[0].url
+                        outputdata["is_playing"] = jsonData.is_playing
+                    }else if(jsonData.error.message == "The access token expired"){
+                        outputdata["imageurl"] = "/public/image.png"
+                        outputdata["titlename"] = "Getting new token"
+                        outputdata["artistname"] = config.copyright
+                        data.access_token = await refreshToken(data.refresh_token)
+                        saveConfig()
+                    }
+                }else{
+                    outputdata["is_playing"] = false
                 }
-            })
-            if(inputData != ""){
-                let jsonData = JSON.parse(inputData)
-                if(!jsonData.error){
-                    outputdata["titlename"] = jsonData.item.name
-                    let artists = ""
-                    Object(jsonData.item.artists).forEach(element => {
-                        artists += ", " + element.name
-                    })
-                    outputdata["artistname"] = artists.substr(2)
-                    outputdata["imageurl"] = jsonData.item.album.images[0].url
-                    outputdata["is_playing"] = jsonData.is_playing
-                }else if(jsonData.error.message == "The access token expired"){
-                    outputdata["imageurl"] = "/public/image.png"
-                    outputdata["titlename"] = "Getting new token"
-                    outputdata["artistname"] = config.copyright
-                    data.access_token = await refreshToken(data.refresh_token)
-                    saveConfig()
-                }
-            }else{
-                outputdata["is_playing"] = false
+            }catch(e){
+                console.log();
+                console.log();
+                console.log();
+                console.log("--- Error -------------")
+                console.error(e)
+                console.log();
             }
             cache.workRightNow = false
         }
@@ -250,4 +259,5 @@ const parseURLencoded = (url) => {
         console.log()
         console.log("--- Error -------------")
         console.error(e)
+        console.log();
     }).listen(config.port)
